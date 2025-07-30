@@ -1,7 +1,0 @@
-pydub
-librosa
-noisereduce
-soundfile
-numpy
-openai-whisper
-torch

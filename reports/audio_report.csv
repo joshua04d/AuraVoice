@@ -1,0 +1,2 @@
+channels,word_count,duration_sec,sample_rate,line_count,filename
+1,87,41.538,16000,1,audio/processed\sample_call_clean.wav
