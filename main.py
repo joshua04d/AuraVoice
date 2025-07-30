@@ -1,68 +1,59 @@
+# main.py
+
 import os
 from preprocessing.pipeline import preprocess_audio
 from transcription.whisper_transcribe import transcribe_audio
-from metadata.extract import extract_metadata
-from analytics.analyze import analyze_transcript
-from report.generate_csv import write_report
-
+from analysis.analyze_transcript import analyze_transcript
+from utils.metadata import extract_metadata
+from utils.save_utils import save_text, save_json, save_csv
 
 RAW_DIR = "audio/raw"
 PROCESSED_DIR = "audio/processed"
+REPORTS_DIR = "reports"
 
-for filename in os.listdir(RAW_DIR):
-    if filename.endswith(".mp3") or filename.endswith(".wav"):
-        raw_path = os.path.join(RAW_DIR, filename)
-        base_name = os.path.splitext(filename)[0]
-        cleaned_path = os.path.join(PROCESSED_DIR, base_name + "_clean.wav")
-        transcript_path = os.path.join(PROCESSED_DIR, base_name + "_transcription.txt")
+def process_batch():
+    all_reports = []
+    files = sorted([
+        f for f in os.listdir(RAW_DIR)
+        if f.endswith(".mp3") or f.endswith(".wav")
+    ])
 
-        print(f"\n[1] Preprocessing {filename}...")
-        preprocess_audio(raw_path, cleaned_path)
+    for idx, filename in enumerate(files, start=1):
+        call_id = f"call{idx}"
+        input_path = os.path.join(RAW_DIR, filename)
+        clean_path = os.path.join(PROCESSED_DIR, f"{call_id}_clean.wav")
+        transcription_path = os.path.join(PROCESSED_DIR, f"{call_id}_transcription.txt")
+        metadata_path = os.path.join(PROCESSED_DIR, f"{call_id}_metadata.json")
 
-        print(f"[2] Transcribing {filename}...")
-        transcript = transcribe_audio(cleaned_path)
+        print(f"\n🔄 Processing {filename} as {call_id}")
 
-        with open(transcript_path, "w", encoding="utf-8") as f:
-            f.write(transcript)
+        # Step 1: Preprocess audio
+        preprocess_audio(input_path, clean_path)
 
-        print(f"[3] Extracting metadata for {filename}...")
-        meta = extract_metadata(cleaned_path)
-        print(meta)
+        # Step 2: Transcribe
+        transcript = transcribe_audio(clean_path)
+        save_text(transcript, transcription_path)
 
-        print(f"[4] Analyzing transcript for {filename}...")
-        stats = analyze_transcript(transcript_path)
-        print(stats)
-        
-        report_data = []
+        # Step 3: Metadata
+        metadata = extract_metadata(clean_path)
+        save_json(metadata, metadata_path)
 
-for filename in os.listdir(RAW_DIR):
-    if filename.endswith(".mp3") or filename.endswith(".wav"):
-        raw_path = os.path.join(RAW_DIR, filename)
-        base_name = os.path.splitext(filename)[0]
-        cleaned_path = os.path.join(PROCESSED_DIR, base_name + "_clean.wav")
-        transcript_path = os.path.join(PROCESSED_DIR, base_name + "_transcription.txt")
+        # Step 4: NLP analysis
+        analysis = analyze_transcript(transcript)
 
-        print(f"\n[1] Preprocessing {filename}...")
-        preprocess_audio(raw_path, cleaned_path)
-
-        print(f"[2] Transcribing {filename}...")
-        transcript = transcribe_audio(cleaned_path)
-
-        with open(transcript_path, "w", encoding="utf-8") as f:
-            f.write(transcript)
-
-        print(f"[3] Extracting metadata for {filename}...")
-        meta = extract_metadata(cleaned_path)
-
-        print(f"[4] Analyzing transcript for {filename}...")
-        stats = analyze_transcript(transcript_path)
-
-        # Combine all data for this file
-        report_data.append({
+        # Collect for CSV report
+        row = {
+            "call_id": call_id,
             "filename": filename,
-            **meta,
-            **stats
-        })
+            **metadata,
+            **analysis
+        }
+        all_reports.append(row)
 
-# After all files
-write_report(report_data, "reports/audio_report.csv")
+    # Step 5: Save batch CSV report
+    csv_path = os.path.join(REPORTS_DIR, "batch_analysis_report.csv")
+    save_csv(all_reports, csv_path)
+    print(f"\n✅ Batch processing complete. Report saved to: {csv_path}")
+
+if __name__ == "__main__":
+    process_batch()
