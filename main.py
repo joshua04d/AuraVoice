@@ -1,27 +1,32 @@
-# main.py
-
 import os
 from preprocessing.pipeline import preprocess_audio
 from transcription.whisper_transcribe import transcribe_audio
+from metadata.extract import extract_metadata
+from analytics.analyze import analyze_transcript
 
-# --- Paths ---
-INPUT_PATH = "audio/raw/sample_call.mp3"
-PROCESSED_PATH = "audio/processed/sample_call_clean.wav"
-TRANSCRIPT_PATH = "audio/processed/sample_call_transcription.txt"
+RAW_DIR = "audio/raw"
+PROCESSED_DIR = "audio/processed"
 
-def save_transcription(text: str, path: str):
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(text)
-    print(f"[✔] Transcription saved to: {path}")
+for filename in os.listdir(RAW_DIR):
+    if filename.endswith(".mp3") or filename.endswith(".wav"):
+        raw_path = os.path.join(RAW_DIR, filename)
+        base_name = os.path.splitext(filename)[0]
+        cleaned_path = os.path.join(PROCESSED_DIR, base_name + "_clean.wav")
+        transcript_path = os.path.join(PROCESSED_DIR, base_name + "_transcription.txt")
 
-if __name__ == "__main__":
-    print("\n[1] Preprocessing audio...")
-    preprocess_audio(INPUT_PATH, PROCESSED_PATH)
+        print(f"\n[1] Preprocessing {filename}...")
+        preprocess_audio(raw_path, cleaned_path)
 
-    print("\n[2] Running Whisper transcription...")
-    transcription = transcribe_audio(PROCESSED_PATH)
+        print(f"[2] Transcribing {filename}...")
+        transcript = transcribe_audio(cleaned_path)
 
-    print("\n[3] Saving transcription to file...")
-    save_transcription(transcription, TRANSCRIPT_PATH)
+        with open(transcript_path, "w", encoding="utf-8") as f:
+            f.write(transcript)
 
-    print("\n✅ Pipeline complete.")
+        print(f"[3] Extracting metadata for {filename}...")
+        meta = extract_metadata(cleaned_path)
+        print(meta)
+
+        print(f"[4] Analyzing transcript for {filename}...")
+        stats = analyze_transcript(transcript_path)
+        print(stats)
